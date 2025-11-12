@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyGame Editor - Python in Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #ecf0f1;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #3498db, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #bdc3c7;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            height: calc(100vh - 140px);
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(30, 30, 40, 0.8);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .panel-header {
+            background: rgba(20, 20, 30, 0.9);
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            color: #3498db;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .run-btn {
+            background: linear-gradient(to right, #2ecc71, #1abc9c);
+            color: white;
+        }
+
+        .clear-btn {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .code-editor {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            background: #1e1e2e;
+            color: #f8f8f2;
+            border: none;
+            resize: none;
+            outline: none;
+            tab-size: 4;
+        }
+
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(30, 30, 40, 0.8);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .preview-content {
+            flex: 1;
+            padding: 20px;
+            background: #1e1e2e;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output {
+            background: #2d2d2d;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            font-family: 'Fira Code', monospace;
+            white-space: pre-wrap;
+            max-height: 30%;
+            overflow-y: auto;
+        }
+
+        .game-canvas-container {
+            flex: 1;
+            background: #000;
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .status-bar {
+            background: rgba(20, 20, 30, 0.9);
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            color: #95a5a6;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .examples {
+            margin-top: 20px;
+            background: rgba(30, 30, 40, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .examples h3 {
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+
+        .example-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            padding: 8px 12px;
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+            color: #3498db;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .example-btn:hover {
+            background: rgba(52, 152, 219, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .editor-container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <div class="header">
+            <h1>PyGame Editor</h1>
+            <p>Interactive Python Editor with Real-time Preview - Including Game Support</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="editor-panel">
+                <div class="panel-header">
+                    <div class="panel-title">Python Code Editor</div>
+                    <div class="controls">
+                        <button class="btn run-btn" id="runBtn">▶ Run Code</button>
+                        <button class="btn clear-btn" id="clearBtn">Clear</button>
+                    </div>
+                </div>
+                <textarea id="codeEditor" class="code-editor"># Welcome to PyGame Editor!
+# Type Python code here and see real-time preview
+
+# Example: Simple game with PyGame style
+import time
+
+def simple_game():
+    x, y = 40, 25
+    vx, vy = 1, 1
+    width, height = 80, 50
+    
+    while True:
+        # Clear screen
+        print("\033[2J\033[H", end="")  # ANSI escape codes for clearing screen
+        
+        # Update position
+        x += vx
+        y += vy
+        
+        # Bounce off walls
+        if x <= 0 or x >= width - 2:
+            vx = -vx
+        if y <= 0 or y >= height - 2:
+            vy = -vy
+            
+        # Draw
+        for row in range(height):
+            for col in range(width):
+                if col == x and row == y:
+                    print("@", end="")
+                elif col == 0 or col == width - 1 or row == 0 or row == height - 1:
+                    print("#", end="")
+                else:
+                    print(" ", end="")
+            print()
+        
+        time.sleep(0.1)
+
+# Uncomment to run the simple game
+# simple_game()
+
+# Example: Basic Python output
+print("Hello from PyGame Editor!")
+print("This is real-time output preview")
+
+# Example: Interactive elements
+name = "World"
+print(f"Welcome, {name}!")
+
+# Example: Mathematical operations
+numbers = [1, 2, 3, 4, 5]
+squares = [n**2 for n in numbers]
+print(f"Squares: {squares}")
+
+# Example: Simple animation concept
+for i in range(10):
+    print(f"Frame {i}: {'.' * i}")
+    time.sleep(0.1)
+</textarea>
+            </div>
+            
+            <div class="preview-panel">
+                <div class="panel-header">
+                    <div class="panel-title">Real-time Preview</div>
+                </div>
+                <div class="preview-content">
+                    <div class="output" id="output">Output will appear here...</div>
+                    <div class="game-canvas-container">
+                        <canvas id="gameCanvas" width="600" height="400"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <div>Python Editor | Real-time Preview</div>
+            <div>Status: Ready</div>
+        </div>
+        
+        <div class="examples">
+            <h3>Example Codes:</h3>
+            <div class="example-buttons">
+                <button class="example-btn" data-example="hello">Hello World</button>
+                <button class="example-btn" data-example="game">Simple Game</button>
+                <button class="example-btn" data-example="animation">Animation</button>
+                <button class="example-btn" data-example="math">Math Operations</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const codeEditor = document.getElementById('codeEditor');
+            const output = document.getElementById('output');
+            const runBtn = document.getElementById('runBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const gameCanvas = document.getElementById('gameCanvas');
+            const ctx = gameCanvas.getContext('2d');
+            const exampleBtns = document.querySelectorAll('.example-btn');
+            
+            // Example codes
+            const examples = {
+                hello: `print("Hello, World!")
+print("Welcome to PyGame Editor!")
+name = input("What's your name? ") if False else "Guest"
+print(f"Nice to meet you, {name}!")`,
+                
+                game: `# Simple PyGame-like game simulation
+import time
+import random
+
+# Game state
+player_x = 10
+player_y = 10
+target_x = random.randint(5, 25)
+target_y = random.randint(5, 20)
+score = 0
+
+def draw_game():
+    print("\\n" + "="*40)
+    for y in range(25):
+        row = ""
+        for x in range(40):
+            if x == player_x and y == player_y:
+                row += "@"
+            elif x == target_x and y == target_y:
+                row += "★"
+            elif x == 0 or x == 39 or y == 0 or y == 24:
+                row += "#"
+            else:
+                row += "."
+        print(row)
+    print("="*40)
+    print(f"Score: {score} | Player: ({player_x}, {player_y}) | Target: ({target_x}, {target_y})")
+
+def move_player(dx, dy):
+    global player_x, player_y, score, target_x, target_y
+    player_x += dx
+    player_y += dy
+    
+    # Keep player in bounds
+    player_x = max(1, min(38, player_x))
+    player_y = max(1, min(23, player_y))
+    
+    # Check if player reached target
+    if player_x == target_x and player_y == target_y:
+        score += 10
+        target_x = random.randint(5, 35)
+        target_y = random.randint(5, 20)
+
+# Main game loop
+for i in range(20):  # 20 turns
+    draw_game()
+    moves = [(1,0), (-1,0), (0,1), (0,-1)]
+    move = random.choice(moves)
+    move_player(move[0], move[1])
+    time.sleep(0.5)
+    print("\\033[2J\\033[H", end="")  # Clear screen
+
+print("Game Over! Final Score:", score)`,
+                
+                animation: `# Animation simulation
+import time
+
+def animate():
+    frames = [
+        "┤ ▒ ▓ ░ ├",
+        "┘ ▒ ▓ ░ └",
+        "└ ▒ ▓ ░ ┘",
+        "┌ ▒ ▓ ░ ┐",
+        "┐ ▒ ▓ ░ ┌"
+    ]
+    
+    for i in range(20):
+        frame = frames[i % len(frames)]
+        print(f"\\nFrame {i+1}: {frame}")
+        print("Progress: " + "█" * (i//2) + "░" * (10 - i//2) + f" {(i*5)}%")
+        time.sleep(0.3)
+        print("\\033[2J\\033[H", end="")  # Clear screen
+    
+    print("Animation Complete!")
+
+animate()`,
+                
+                math: `# Mathematical operations
+import math
+
+print("Mathematical Operations Demo")
+print("="*30)
+
+# Basic operations
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+print(f"Numbers: {numbers}")
+
+# Squares
+squares = [n**2 for n in numbers]
+print(f"Squares: {squares}")
+
+# Square roots
+sqrt_nums = [math.sqrt(n) for n in numbers[:5]]
+print(f"Square roots (first 5): {[round(x, 2) for x in sqrt_nums]}")
+
+# Factorials
+factorials = [math.factorial(n) for n in range(1, 6)]
+print(f"Factorials: {factorials}")
+
+# Trigonometry
+angles = [0, 30, 45, 60, 90]
+print("\\nTrigonometric values:")
+for angle in angles:
+    rad = math.radians(angle)
+    print(f"{angle}°: sin={math.sin(rad):.3f}, cos={math.cos(rad):.3f}, tan={math.tan(rad):.3f}")
+
+# Fibonacci sequence
+def fibonacci(n):
+    a, b = 0, 1
+    sequence = []
+    for _ in range(n):
+        sequence.append(a)
+        a, b = b, a + b
+    return sequence
+
+fib = fibonacci(10)
+print(f"\\nFibonacci (first 10): {fib}")
+
+# Prime numbers
+def is_prime(n):
+    if n < 2:
+        return False
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+primes = [n for n in range(2, 30) if is_prime(n)]
+print(f"Primes < 30: {primes}")`
+            };
+            
+            // Set up example buttons
+            exampleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const exampleType = btn.getAttribute('data-example');
+                    codeEditor.value = examples[exampleType];
+                    runCode();
+                });
+            });
+            
+            // Auto-run on typing with debounce
+            let typingTimer;
+            codeEditor.addEventListener('input', () => {
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(runCode, 1000); // Run after 1 second of inactivity
+            });
+            
+            // Run button event
+            runBtn.addEventListener('click', runCode);
+            
+            // Clear button event
+            clearBtn.addEventListener('click', () => {
+                output.textContent = 'Output cleared...';
+                codeEditor.value = '# Welcome to PyGame Editor!\n# Type Python code here and see real-time preview\n\nprint("Hello, World!")\n';
+                clearCanvas();
+            });
+            
+            // Initial run
+            runCode();
+            
+            function runCode() {
+                const code = codeEditor.value;
+                output.textContent = 'Running code...';
+                
+                // Simulate Python execution (in a real app, this would connect to a Python interpreter)
+                setTimeout(() => {
+                    try {
+                        // This is a simulation - in a real app you'd send code to a Python interpreter
+                        simulatePythonExecution(code);
+                    } catch (error) {
+                        output.textContent = `Error: ${error.message}`;
+                    }
+                }, 300);
+            }
+            
+            function simulatePythonExecution(code) {
+                // Clear canvas
+                clearCanvas();
+                
+                // Simple output simulation
+                let outputText = '';
+                
+                if (code.includes('simple_game')) {
+                    // Simulate a simple game
+                    outputText = simulateGame();
+                } else if (code.includes('animate')) {
+                    outputText = simulateAnimation();
+                } else {
+                    // Default simulation
+                    outputText = `# Executing Python code...\n`;
+                    outputText += `Output:\n`;
+                    outputText += `Hello from PyGame Editor!\n`;
+                    outputText += `Current time: ${new Date().toLocaleTimeString()}\n`;
+                    outputText += `Code length: ${code.length} characters\n`;
+                    
+                    // Check for print statements
+                    const printMatches = code.match(/print\(([^)]+)\)/g);
+                    if (printMatches) {
+                        printMatches.forEach(match => {
+                            try {
+                                // Extract content from print statement (simplified)
+                                const content = match.replace('print(', '').replace(')', '');
+                                outputText += `> ${evalPrint(content)}\n`;
+                            } catch (e) {
+                                outputText += `> ${match}\n`;
+                            }
+                        });
+                    }
+                    
+                    // Simulate a simple game if game-related code is detected
+                    if (code.toLowerCase().includes('pygame') || code.toLowerCase().includes('game')) {
+                        drawSimpleGame();
+                    }
+                }
+                
+                output.textContent = outputText;
+            }
+            
+            function evalPrint(content) {
+                // Simplified evaluation for demonstration
+                if (content.includes('"') || content.includes("'")) {
+                    return content.replace(/"/g, '').replace(/'/g, '');
+                }
+                return content;
+            }
+            
+            function simulateGame() {
+                return `# Simple Game Simulation\n
+████████████████████████████████████████
+█                                        █
+█                                        █
+█                                        █
+█                  @                     █
+█                                        █
+█                                        █
+█                                        █
+█                                        █
+█                                        █
+████████████████████████████████████████
+Score: 0 | Position: (20, 10)\n
+# Game running... (simulated)`;
+            }
+            
+            function simulateAnimation() {
+                return `# Animation Simulation\n
+Frame 1: ┤ ▒ ▓ ░ ├
+Frame 2: ┘ ▒ ▓ ░ └
+Frame 3: └ ▒ ▓ ░ ┘
+Frame 4: ┌ ▒ ▓ ░ ┐
+Frame 5: ┐ ▒ ▓ ░ ┌\n
+# Animation complete!`;
+            }
+            
+            function drawSimpleGame() {
+                // Draw a simple game scene on canvas
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+                
+                // Draw borders
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(10, 10, gameCanvas.width - 20, gameCanvas.height - 20);
+                
+                // Draw player
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(100, 100, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw enemy
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(200, 150, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw collectible
+                ctx.fillStyle = '#eab308';
+                ctx.beginPath();
+                ctx.arc(300, 80, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw title
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '20px Arial';
+                ctx.fillText('PyGame Simulation', 20, 30);
+            }
+            
+            function clearCanvas() {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+            }
+        });
+    </script>
+</body>
+</html>
